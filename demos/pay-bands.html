@@ -1,0 +1,1595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ops Compensation Tracker</title>
+<style>
+  :root{
+    --navy:#14213D;
+    --navy-2:#1F3155;
+    --navy-soft:#2A3F66;
+    --gold:#C9A227;
+    --gold-soft:#E7D9A6;
+    --paper:#F7F6F2;
+    --card:#FFFFFF;
+    --ink:#1A1C20;
+    --ink-soft:#5A5E66;
+    --line:#E4E1D8;
+    --line-2:#EDEBE3;
+    --ok:#2E7D52;
+    --ok-bg:#E7F2EB;
+    --warn:#C98A1E;
+    --warn-bg:#FBF1DC;
+    --bad:#B23A2E;
+    --bad-bg:#F8E7E4;
+    --shadow:0 1px 2px rgba(20,33,61,.06),0 8px 24px rgba(20,33,61,.06);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
+    font-size:14px;
+    line-height:1.45;
+    -webkit-font-smoothing:antialiased;
+  }
+  .num{font-variant-numeric:tabular-nums}
+  button{font-family:inherit;cursor:pointer}
+  input,select{font-family:inherit;font-size:13px;color:var(--ink)}
+
+  /* Header */
+  header.app{
+    background:var(--navy);
+    color:#fff;
+    padding:16px 22px;
+    display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+    border-bottom:3px solid var(--gold);
+  }
+  .brand{display:flex;align-items:center;gap:12px;min-width:0}
+  .mark{
+    width:38px;height:38px;border-radius:9px;flex:0 0 auto;
+    background:linear-gradient(135deg,var(--gold),#A9851A);
+    display:grid;place-items:center;color:var(--navy);
+    font-weight:800;font-size:22px;line-height:1;letter-spacing:-.5px;
+  }
+  .brand h1{font-size:16px;margin:0;font-weight:700;letter-spacing:.2px}
+  .brand p{margin:1px 0 0;font-size:11.5px;color:#AEB9D2;letter-spacing:.3px;text-transform:uppercase;font-weight:600}
+  .header-actions{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .savebadge{
+    display:flex;align-items:center;gap:7px;font-size:12px;color:#C7D0E4;
+    background:var(--navy-2);padding:6px 11px;border-radius:20px;
+  }
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--gold);box-shadow:0 0 0 3px rgba(201,162,39,.18)}
+  .dot.saved{background:#5BD08A;box-shadow:0 0 0 3px rgba(91,208,138,.18)}
+
+  .btn{
+    border:1px solid transparent;border-radius:8px;padding:8px 13px;font-size:12.5px;font-weight:600;
+    background:var(--navy-2);color:#fff;display:inline-flex;align-items:center;gap:6px;
+    transition:background .15s,transform .05s;
+  }
+  .btn:hover{background:var(--navy-soft)}
+  .btn:active{transform:translateY(1px)}
+  .btn.gold{background:var(--gold);color:var(--navy)}
+  .btn.gold:hover{background:#D8B23A}
+  .btn.ghost{background:transparent;border-color:rgba(255,255,255,.22);color:#E6EBF5}
+  .btn.ghost:hover{background:rgba(255,255,255,.08)}
+  .btn.sm{padding:5px 9px;font-size:11.5px;border-radius:6px}
+  .btn.line{background:#fff;color:var(--navy);border-color:var(--line)}
+  .btn.line:hover{background:var(--paper)}
+
+  /* Tabs */
+  .tabbar{
+    display:flex;gap:2px;padding:0 22px;background:var(--card);
+    border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20;
+    overflow-x:auto;
+  }
+  .tab{
+    border:none;background:transparent;padding:14px 16px 11px;font-size:13px;font-weight:600;color:var(--ink-soft);
+    border-bottom:3px solid transparent;white-space:nowrap;
+  }
+  .tab:hover{color:var(--ink)}
+  .tab.active{color:var(--navy);border-bottom-color:var(--gold)}
+  .tab .pill{
+    margin-left:7px;background:var(--line-2);color:var(--ink-soft);font-size:11px;
+    padding:1px 7px;border-radius:10px;font-weight:700
+  }
+  .tab.active .pill{background:var(--gold-soft);color:#7A6212}
+
+  main{padding:20px 22px 60px;max-width:1500px;margin:0 auto}
+  .view{display:none}
+  .view.active{display:block}
+
+  /* Summary strip */
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:12px;margin-bottom:18px}
+  .stat{
+    background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow);
+    position:relative;overflow:hidden;
+  }
+  .stat::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--gold)}
+  .stat .k{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--ink-soft);font-weight:700}
+  .stat .v{font-size:25px;font-weight:800;letter-spacing:-.5px;margin-top:3px}
+  .stat .s{font-size:11.5px;color:var(--ink-soft);margin-top:1px}
+  .stat.bad::before{background:var(--bad)}
+  .stat.ok::before{background:var(--ok)}
+
+  .toolbar{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+  .toolbar .grow{flex:1}
+  .search{
+    border:1px solid var(--line);background:#fff;border-radius:8px;padding:8px 12px;min-width:200px;width:260px;
+  }
+  .search:focus{outline:2px solid var(--gold-soft);border-color:var(--gold)}
+  .filtersel{
+    border:1px solid var(--line);background:#fff;border-radius:8px;padding:8px 10px;
+    font-size:13px;font-weight:600;color:var(--ink);min-width:120px;
+  }
+  .filtersel:focus{outline:2px solid var(--gold-soft);border-color:var(--gold)}
+  .filtersel.on{border-color:var(--gold);background:#FFFCF0;color:var(--navy)}
+  .filterlbl{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--ink-soft);font-weight:700}
+  .hint{font-size:12px;color:var(--ink-soft)}
+  .sortbar{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+  .yeartoggle{display:flex;align-items:center;gap:6px;margin-bottom:14px}
+  .yrbtn{border:1px solid var(--line);background:#fff;color:var(--ink-soft);border-radius:8px;padding:7px 18px;font-size:14px;font-weight:800;letter-spacing:.3px}
+  .yrbtn:hover{background:var(--paper);color:var(--ink)}
+  .yrbtn.active{background:var(--navy);color:#fff;border-color:var(--navy);box-shadow:inset 0 -3px 0 var(--gold)}
+  .sortlbl{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--ink-soft);font-weight:700;margin-right:4px}
+  .sortbtn{border:1px solid var(--line);background:#fff;color:var(--ink-soft);border-radius:7px;padding:6px 11px;font-size:12.5px;font-weight:600}
+  .sortbtn:hover{background:var(--paper);color:var(--ink)}
+  .sortbtn.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+  .dirbtn{border:1px solid var(--gold);background:var(--gold-soft);color:#7A6212;border-radius:7px;padding:6px 11px;font-size:12.5px;font-weight:700;display:inline-flex;align-items:center;gap:5px}
+  .dirbtn:hover{background:#EFE0AE}
+
+  /* Table */
+  .tablewrap{
+    background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);
+    overflow:auto;max-height:calc(100vh - 210px);
+  }
+  @media (max-width:640px){ .tablewrap{max-height:calc(100vh - 170px)} }
+  table{border-collapse:separate;border-spacing:0;width:100%;font-size:13px}
+  thead th{
+    background:var(--navy);color:#E9EDF6;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.4px;
+    padding:11px 10px;text-align:left;white-space:nowrap;position:sticky;top:0;z-index:5;border-bottom:1px solid var(--navy-2);
+  }
+  thead th.sortable{cursor:pointer}
+  thead th.sortable:hover{color:#fff}
+  thead th .arrow{color:var(--gold);font-size:10px;margin-left:3px}
+  tbody td{padding:4px 8px;border-bottom:1px solid var(--line-2);white-space:nowrap;vertical-align:middle}
+  tbody tr:hover{background:#FBFAF6}
+  tbody tr.dragging{opacity:.4}
+  tbody tr.dragover td{box-shadow:inset 0 2px 0 var(--gold)}
+  .sticky-name{position:sticky;left:0;background:#fff;z-index:4}
+  thead th.sticky-name{z-index:6;background:var(--navy);color:#E9EDF6}
+  tbody tr:hover .sticky-name{background:#FBFAF6}
+
+  .drag{cursor:grab;color:#C3C0B6;padding:0 2px;user-select:none}
+  .drag:active{cursor:grabbing}
+
+  /* inline cells */
+  td input.cell, td select.cell{
+    border:1px solid transparent;background:transparent;border-radius:6px;padding:5px 6px;width:100%;min-width:60px;
+  }
+  td input.cell:hover, td select.cell:hover{border-color:var(--line)}
+  td input.cell:focus, td select.cell:focus{outline:none;border-color:var(--gold);background:#fff;box-shadow:0 0 0 3px var(--gold-soft)}
+  td input.cell.name{font-weight:600;min-width:140px}
+  td input.cell.right{text-align:right}
+  td input.w-rate{width:78px}
+  td input.w-date{width:130px}
+  td input.w-q{width:60px;text-align:center}
+  td .calc{color:var(--ink-soft);padding:5px 6px;display:inline-block}
+  td .calc.money{font-weight:600;color:var(--ink)}
+  td .pos{color:var(--ok);font-weight:700}
+
+  /* status select */
+  .status-sel{border-radius:20px;font-weight:700;font-size:11.5px;padding:5px 10px;border:1px solid var(--line);text-align:center}
+  .st-approved{background:var(--ok-bg);color:var(--ok);border-color:#BFE0CC}
+  .st-pending{background:var(--warn-bg);color:#9A6A12;border-color:#EAD6A2}
+  .st-notapproved{background:var(--bad-bg);color:var(--bad);border-color:#E8C7C1}
+  .st-none{background:#EEEDE7;color:#6B6F77;border-color:#DEDBD2}
+
+  .chip{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px}
+  .chip.below{background:var(--bad-bg);color:var(--bad)}
+  .chip.at{background:var(--ok-bg);color:var(--ok)}
+
+  /* band rail signature */
+  .rail{display:flex;align-items:center;gap:8px}
+  .rail .track{position:relative;width:96px;height:6px;background:var(--line-2);border-radius:4px;flex:0 0 auto}
+  .rail .fill{position:absolute;top:0;bottom:0;left:0;background:linear-gradient(90deg,#D8E7DE,#BCE0CB);border-radius:4px}
+  .rail .pin{position:absolute;top:-3px;width:3px;height:12px;border-radius:2px;background:var(--navy)}
+  .rail .pin.under{background:var(--bad)}
+  .rail .lbl{font-size:11px;color:var(--ink-soft);white-space:nowrap}
+
+  .rowact{display:flex;gap:4px;align-items:center}
+  .iconbtn{
+    border:1px solid var(--line);background:#fff;border-radius:6px;width:28px;height:28px;display:grid;place-items:center;
+    color:var(--ink-soft);font-size:13px;
+  }
+  .iconbtn:hover{background:var(--paper);color:var(--ink)}
+  .iconbtn.raise{border-color:#BFE0CC;color:var(--ok);background:var(--ok-bg)}
+  .iconbtn.raise:hover{background:#DCEFE3}
+  .iconbtn.del:hover{background:var(--bad-bg);color:var(--bad);border-color:#E8C7C1}
+
+  .empty{padding:40px;text-align:center;color:var(--ink-soft)}
+  .empty b{display:block;color:var(--ink);font-size:15px;margin-bottom:4px}
+
+  /* footer quarter rollup */
+  .rollup{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:14px}
+  .qcard{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .qcard .q{font-weight:800;color:var(--navy);font-size:13px;letter-spacing:.3px}
+  .qcard .qv{font-size:18px;font-weight:800;margin-top:2px}
+  .qcard .qs{font-size:11px;color:var(--ink-soft)}
+
+  /* Pay bands tab */
+  .bandsgrid{max-width:760px}
+
+  /* Modal */
+  .scrim{position:fixed;inset:0;background:rgba(20,33,61,.45);display:none;z-index:50;backdrop-filter:blur(2px)}
+  .scrim.open{display:grid;place-items:center;padding:20px}
+  .modal{background:#fff;border-radius:14px;width:100%;max-width:440px;box-shadow:0 24px 60px rgba(0,0,0,.3);overflow:hidden}
+  .modal header{background:var(--navy);color:#fff;padding:16px 20px;border-bottom:3px solid var(--gold)}
+  .modal header h3{margin:0;font-size:16px}
+  .modal header p{margin:3px 0 0;font-size:12px;color:#AEB9D2}
+  .modal .body{padding:18px 20px}
+  .field{margin-bottom:13px}
+  .field label{display:block;font-size:12px;font-weight:700;color:var(--ink-soft);margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px}
+  .field input,.field select,.field textarea{
+    width:100%;border:1px solid var(--line);border-radius:8px;padding:9px 11px;background:#fff;
+  }
+  .field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px var(--gold-soft)}
+  .field textarea{resize:vertical;min-height:56px}
+  .frow{display:flex;gap:10px}
+  .frow .field{flex:1}
+  .raise-preview{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:11px 13px;font-size:13px;margin-bottom:13px}
+  .raise-preview .big{font-size:16px;font-weight:800;color:var(--ok)}
+  .modal .foot{display:flex;gap:8px;justify-content:flex-end;padding:14px 20px;border-top:1px solid var(--line);background:#FCFBF8}
+
+  .filehidden{display:none}
+  .toast{
+    position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:var(--navy);color:#fff;padding:11px 18px;border-radius:10px;font-size:13px;font-weight:600;
+    box-shadow:0 12px 30px rgba(0,0,0,.25);opacity:0;transition:.25s;z-index:60;border-left:3px solid var(--gold)
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  /* colored tag selects + read only badges */
+  select.tag{
+    border:1px solid rgba(0,0,0,.06);border-radius:20px;padding:5px 22px 5px 11px;font-weight:700;font-size:11.5px;
+    width:auto;min-width:58px;-webkit-appearance:none;appearance:none;cursor:pointer;
+    background-repeat:no-repeat;
+    background-image:linear-gradient(45deg,transparent 50%,#999 50%),linear-gradient(135deg,#999 50%,transparent 50%);background-size:4px 4px;background-position:calc(100% - 11px) 52%,calc(100% - 7px) 52%;
+  }
+  select.tag:focus{outline:none;box-shadow:0 0 0 3px var(--gold-soft)}
+  .badge{display:inline-block;border-radius:20px;padding:3px 10px;font-weight:700;font-size:11px;white-space:nowrap}
+
+  /* quarter banner rows */
+  tr.qbanner td{padding:0;border-bottom:1px solid var(--line)}
+  .qbar{
+    display:flex;align-items:center;gap:14px;padding:10px 14px;flex-wrap:wrap;
+    border-left:6px solid var(--qc,#5A5E66);background:var(--qbg,#f1f1f1);
+  }
+  .qbar .qname{font-weight:800;font-size:16px;letter-spacing:.6px;color:var(--qc)}
+  .qbar .qppl{font-size:12px;color:var(--ink-soft);font-weight:600}
+  .qbar .qmeta{margin-left:18px;display:flex;gap:22px;align-items:flex-end;flex-wrap:wrap}
+  .qbar .qfig{display:flex;flex-direction:column;line-height:1.1}
+  .qbar .qfig .qv{font-weight:800;font-size:14px;color:var(--ink)}
+  .qbar .qfig .ql{font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--ink-soft);font-weight:700;margin-top:1px}
+  tr.qbanner.dropok .qbar{outline:2px dashed var(--qc);outline-offset:-5px}
+  .qnote td{padding:7px 14px;color:var(--ink-soft);font-size:12px;background:#FCFBF8}
+  .legend{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:14px;padding:10px 12px;background:var(--card);border:1px solid var(--line);border-radius:10px}
+  .legend .lk{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--ink-soft);font-weight:700;margin:0 4px 0 8px}
+
+  /* status emphasis on the whole row */
+  tr.st-row-pending td{background:#FFFBEF}
+  tr.st-row-pending .sticky-name{background:#FFFBEF}
+  tbody tr.st-row-pending:hover td,tbody tr.st-row-pending:hover .sticky-name{background:#FBF2D6}
+  tr.st-row-pending td:first-child{box-shadow:inset 4px 0 0 var(--warn)}
+  tr.st-row-notapproved td{background:#FDF2F0}
+  tr.st-row-notapproved .sticky-name{background:#FDF2F0}
+  tbody tr.st-row-notapproved:hover td,tbody tr.st-row-notapproved:hover .sticky-name{background:#F7E4E0}
+  tr.st-row-notapproved td:first-child{box-shadow:inset 4px 0 0 var(--bad)}
+  tr.st-row-approved td:first-child{box-shadow:inset 4px 0 0 var(--ok)}
+  tr.st-row-none td:first-child{box-shadow:inset 4px 0 0 #C2BEB3}
+  .flag-pending{
+    display:inline-flex;align-items:center;gap:5px;margin-left:7px;font-size:10px;font-weight:800;
+    letter-spacing:.5px;color:#9A6A12;background:var(--warn-bg);border:1px solid #EAD6A2;
+    padding:2px 8px;border-radius:20px;text-transform:uppercase;vertical-align:middle;
+  }
+  .flag-pending::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--warn)}
+  .qpend{font-size:11px;font-weight:700;color:#9A6A12;background:var(--warn-bg);border:1px solid #EAD6A2;padding:2px 9px;border-radius:20px}
+  .nextrev{display:inline-flex;align-items:center;gap:7px;white-space:nowrap}  .nextrev.due .calc{color:var(--bad);font-weight:700}
+  .calc.ms-over{color:var(--bad);font-weight:800}
+  .flag-over{
+    display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:800;letter-spacing:.4px;
+    color:#1F6B47;background:var(--ok-bg);border:1px solid #BFE0CC;padding:2px 8px;border-radius:20px;
+    text-transform:uppercase;
+  }
+  .flag-over::before{content:"★";font-size:9px;line-height:1}
+  .qfilter{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:14px}
+  .qfbtn{border:1px solid var(--line);background:#fff;color:var(--ink-soft);border-radius:20px;padding:5px 13px;font-size:12.5px;font-weight:700}
+  .qfbtn:hover{background:var(--paper)}
+  .qfbtn.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+  .qfbtn.allbtn{border-style:dashed}
+
+  /* money input with leading $ */
+  .mwrap{position:relative;display:inline-block}
+  .mwrap .pfx{position:absolute;left:7px;top:50%;transform:translateY(-50%);color:var(--ink-soft);font-size:12px;font-weight:600;pointer-events:none}
+  .mwrap input{padding-left:15px}
+  .mwrap.rate{background:#EEF2FA;border-radius:7px}
+  .mwrap.rate.locked{background:#ECEDEA}
+  .mwrap.rate.locked input.rateval{color:var(--ink-soft);cursor:default}
+  .mwrap.rate .pfx{color:var(--navy);font-weight:800;font-size:13px}
+  input.rateval{font-weight:800;color:var(--navy);font-size:15px;width:74px}
+  input.rateval::placeholder{font-weight:600}
+  .calc.prophr{font-weight:800;color:var(--ok);font-size:15px}
+  .calc.prophr.filled{background:#E7F2EB;border-radius:7px;padding:5px 10px}
+  /* let colored selects fit their longest label */
+  select.tag[data-cmap="role"]{min-width:190px}
+  select.tag[data-cmap="hub"]{min-width:96px}
+  select.tag[data-cmap="team"]{min-width:74px}
+
+  .demopill{position:fixed;left:10px;bottom:10px;z-index:70;display:flex;align-items:center;gap:7px;
+    background:rgba(20,33,61,.92);color:#fff;border:1px solid var(--gold);border-radius:20px;padding:4px 5px 4px 11px;
+    font-size:11px;font-weight:700;letter-spacing:.2px;box-shadow:0 6px 18px rgba(0,0,0,.18)}
+  .demopill button{border:none;background:var(--gold);color:var(--navy);border-radius:14px;padding:3px 9px;font-size:10.5px;font-weight:800}
+  @media (max-width:640px){
+    .brand h1{font-size:14px}
+    main{padding:14px 12px 50px}
+    .tabbar{padding:0 12px}
+  }
+</style>
+</head>
+<body>
+
+<header class="app">
+  <div class="brand">
+    <div class="mark">🐼</div>
+    <div>
+      <h1>Ops Compensation Tracker</h1>
+      <p>Path to Pay Bands · Signed in as Demo Manager</p>
+    </div>
+  </div>
+  <div class="header-actions">
+    <div class="savebadge"><span class="dot" id="saveDot"></span><span id="saveText">Saving</span></div>
+    <button class="btn ghost sm" id="btnImport">Import file</button>
+    <button class="btn ghost sm" id="btnExportJson">Export save file</button>
+    <button class="btn ghost sm" id="btnExportCsv">Export CSV</button>
+    <button class="btn gold sm" id="btnAdd">Add person</button>
+    <input type="file" id="fileInput" accept="application/json" class="filehidden" />
+  </div>
+</header>
+
+<nav class="tabbar" id="tabbar">
+  <button class="tab active" data-view="plan">Raise Plan <span class="pill" id="cntPlan">0</span></button>
+  <button class="tab" data-view="rates">Employee Rates <span class="pill" id="cntRates">0</span></button>
+  <button class="tab" data-view="log">Raise Log <span class="pill" id="cntLog">0</span></button>
+  <button class="tab" data-view="bands">Pay Bands</button>
+</nav>
+
+<main>
+  <!-- ===== RAISE PLAN ===== -->
+  <section class="view active" id="view-plan">
+    <div class="yeartoggle">
+      <span class="sortlbl">Plan year</span>
+      <button class="yrbtn active" data-yr="2026">2026</button>
+      <button class="yrbtn" data-yr="2027">2027</button>
+    </div>
+    <div class="qfilter">
+      <span class="sortlbl">Show quarters</span>
+      <button class="qfbtn on" data-qf="Q1">Q1</button>
+      <button class="qfbtn on" data-qf="Q2">Q2</button>
+      <button class="qfbtn on" data-qf="Q3">Q3</button>
+      <button class="qfbtn on" data-qf="Q4">Q4</button>
+      <button class="qfbtn allbtn" data-qf="all">All</button>
+    </div>
+    <div class="stats" id="planStats"></div>
+    <div class="toolbar">
+      <input class="search" id="planSearch" placeholder="Search name, role, dept" />
+      <div class="sortbar">
+        <span class="sortlbl">Sort within quarter</span>
+        <button class="sortbtn active" data-sk="">Manual</button>
+        <button class="sortbtn" data-sk="pay">Pay</button>
+        <button class="sortbtn" data-sk="role">Role</button>
+        <button class="sortbtn" data-sk="hub">Hub</button>
+        <button class="sortbtn" data-sk="team">Team</button>
+        <button class="dirbtn" id="sortDir" style="display:none"></button>
+      </div>
+      <span class="grow"></span>
+      <span class="hint">Sorting reorders people inside each quarter. Switch to Manual to drag rows yourself.</span>
+    </div>
+    <div class="tablewrap">
+      <table id="planTable">
+        <thead><tr id="planHead"></tr></thead>
+        <tbody id="planBody"></tbody>
+      </table>
+    </div>
+    <div class="rollup" id="planRollup"></div>
+  </section>
+
+  <!-- ===== EMPLOYEE RATES ===== -->
+  <section class="view" id="view-rates">
+    <div class="stats" id="ratesStats"></div>
+    <div class="toolbar">
+      <input class="search" id="ratesSearch" placeholder="Search name or role" />
+      <span class="filterlbl">Filter</span>
+      <select class="filtersel" id="ratesHubFilter"></select>
+      <select class="filtersel" id="ratesRoleFilter" style="min-width:150px"></select>
+      <button class="btn line sm" id="ratesClearFilter" style="display:none">Clear</button>
+      <button class="btn gold sm" id="btnAddRates">+ Add person</button>
+      <span class="grow"></span>
+      <span class="hint">Edit any field inline. Gap is measured against the minimum of each role on the Pay Bands tab.</span>
+    </div>
+    <div class="tablewrap">
+      <table id="ratesTable">
+        <thead><tr id="ratesHead"></tr></thead>
+        <tbody id="ratesBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===== RAISE LOG ===== -->
+  <section class="view" id="view-log">
+    <div class="stats" id="logStats"></div>
+    <div class="toolbar">
+      <input class="search" id="logSearch" placeholder="Search name, approver, note" />
+      <span class="grow"></span>
+      <button class="btn line sm" id="btnLogCsv">Export log CSV</button>
+    </div>
+    <div class="tablewrap">
+      <table id="logTable">
+        <thead><tr>
+          <th>Effective</th><th>Name</th><th>Role</th><th>Old rate</th><th>New rate</th>
+          <th>Change /hr</th><th>Change /yr</th><th>Approved by</th><th>Note</th><th>Logged</th><th></th>
+        </tr></thead>
+        <tbody id="logBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===== PAY BANDS ===== -->
+  <section class="view" id="view-bands">
+    <div class="toolbar">
+      <span class="hint">This is the single source of truth. Edit a band here and every person in that role updates everywhere, including the gap math.</span>
+      <span class="grow"></span>
+      <button class="btn line sm" id="btnAddBand">Add role</button>
+    </div>
+    <div class="tablewrap bandsgrid">
+      <table id="bandsTable">
+        <thead><tr>
+          <th>Role</th><th>Team</th><th>Pay type</th><th>Min band</th><th>Max band</th><th></th>
+        </tr></thead>
+        <tbody id="bandsBody"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<!-- Give raise modal -->
+<div class="scrim" id="raiseScrim">
+  <div class="modal">
+    <header>
+      <h3 id="raiseTitle">Give raise</h3>
+      <p id="raiseSub">Record a pay change and add it to the log</p>
+    </header>
+    <div class="body">
+      <div class="raise-preview" id="raisePreview"></div>
+      <div class="frow">
+        <div class="field">
+          <label>New hourly rate</label>
+          <span class="mwrap" style="display:block"><span class="pfx">$</span><input type="number" id="raiseNewRate" step="0.5" min="0" style="padding-left:18px" /></span>
+        </div>
+        <div class="field">
+          <label>Effective date</label>
+          <input type="date" id="raiseDate" />
+        </div>
+      </div>
+      <div class="field">
+        <label>Note</label>
+        <textarea id="raiseNote" placeholder="Context, reason, or quarter"></textarea>
+      </div>
+    </div>
+    <div class="foot">
+      <button class="btn line" id="raiseCancel">Cancel</button>
+      <button class="btn gold" id="raiseConfirm">Save raise</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add person modal -->
+<div class="scrim" id="addScrim">
+  <div class="modal">
+    <header>
+      <h3>Add person</h3>
+      <p>They appear on every tab: Raise Plan, Employee Rates, and the band math</p>
+    </header>
+    <div class="body">
+      <div class="field">
+        <label>Full name</label>
+        <input type="text" id="apName" placeholder="First Last" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label>Role</label>
+        <select id="apRole"></select>
+      </div>
+      <div class="frow">
+        <div class="field">
+          <label>Hub</label>
+          <select id="apHub"></select>
+        </div>
+        <div class="field">
+          <label>Team</label>
+          <select id="apTeam"></select>
+        </div>
+      </div>
+      <div class="frow">
+        <div class="field">
+          <label>Current rate /hr</label>
+          <span class="mwrap" style="display:block"><span class="pfx">$</span><input type="number" id="apRate" step="0.5" min="0" placeholder="0.00" style="padding-left:18px" /></span>
+        </div>
+        <div class="field">
+          <label>Last raise / review</label>
+          <input type="date" id="apReview" />
+        </div>
+      </div>
+      <div class="frow">
+        <div class="field">
+          <label>Raise quarter</label>
+          <select id="apQtr"></select>
+        </div>
+        <div class="field">
+          <label>Status</label>
+          <select id="apStatus">
+            <option>Pending</option>
+            <option>Approved</option>
+            <option>Not Approved</option>
+            <option>Not up for raise</option>
+          </select>
+        </div>
+      </div>
+      <div class="raise-preview" id="apPreview"></div>
+      <div id="apErr" style="font-size:12px;color:var(--bad);min-height:15px;font-weight:600"></div>
+    </div>
+    <div class="foot">
+      <button class="btn line" id="apCancel">Cancel</button>
+      <button class="btn gold" id="apConfirm">Add person</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="demopill" id="demoPill"><span>Demo · invented data</span><button type="button" onclick="location.reload()">Reset demo</button></div>
+
+<script>
+(function(){function mk(){var m={};return{getItem:function(k){return Object.prototype.hasOwnProperty.call(m,k)?m[k]:null},setItem:function(k,v){m[k]=String(v)},removeItem:function(k){delete m[k]},clear:function(){m={}},get length(){return Object.keys(m).length}}}
+try{Object.defineProperty(window,'localStorage',{value:mk(),configurable:true})}catch(e){}
+try{Object.defineProperty(window,'sessionStorage',{value:mk(),configurable:true})}catch(e){}
+window.fetch=function(){return Promise.reject(new Error('offline demo'))};
+
+if(navigator.sendBeacon)navigator.sendBeacon=function(){return true};})();
+</script>
+<script>
+"use strict";
+const HOURS_PER_YEAR = 2080;
+const STORE_SLOT = "comp_tracker_demo";
+
+/* ---------- helpers ---------- */
+const $ = s => document.querySelector(s);
+const money = n => (n===null||n===undefined||isNaN(n)) ? "" : "$"+Math.round(n).toLocaleString();
+const money2 = n => (n===null||n===undefined||isNaN(n)) ? "" : "$"+(Math.round(n*100)/100).toLocaleString(undefined,{minimumFractionDigits:0});
+const rate = n => (n===null||n===undefined||n===""||isNaN(n)) ? "" : "$"+(Math.round(n*100)/100).toLocaleString();
+const uid = () => "id"+Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-4);
+function addMonths(iso,n){
+  if(!iso) return "";
+  const d=new Date(iso+"T00:00:00");
+  if(isNaN(d)) return "";
+  const day=d.getDate();
+  d.setDate(1); d.setMonth(d.getMonth()+n);
+  const dim=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();
+  d.setDate(Math.min(day,dim));
+  return d.toISOString().slice(0,10);
+}
+function fmtDate(iso){
+  if(!iso) return "";
+  const d=new Date(iso+"T00:00:00"); if(isNaN(d)) return iso;
+  return (d.getMonth()+1)+"/"+d.getDate()+"/"+d.getFullYear();
+}
+function todayISO(){return new Date().toISOString().slice(0,10)}
+function monthsBetween(aIso,bIso){
+  if(!aIso||!bIso) return null;
+  const a=new Date(aIso+"T00:00:00"), b=new Date(bIso+"T00:00:00");
+  if(isNaN(a)||isNaN(b)) return null;
+  return (b.getFullYear()-a.getFullYear())*12 + (b.getMonth()-a.getMonth()) + (b.getDate()-a.getDate())/30.4;
+}
+function monthsSinceToday(iso){return monthsBetween(iso,todayISO())}
+function overPerforming(person){
+  const es=state.log.filter(e=>e.personId===person.id || e.name===person.name)
+             .sort((x,y)=> x.effective<y.effective?-1:x.effective>y.effective?1:0);
+  if(es.length<2) return false;
+  const m=monthsBetween(es[es.length-2].effective, es[es.length-1].effective);
+  return m!=null && m<9;
+}
+function nowStamp(){const d=new Date();return (d.getMonth()+1)+"/"+d.getDate()+"/"+d.getFullYear()+" "+d.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}
+
+function toast(msg){const t=$("#toast");t.textContent=msg;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),1900)}
+
+/* ---------- band lookup ---------- */
+function bandFor(role){
+  return state.bands.find(b=>b.role.trim().toLowerCase()===(role||"").trim().toLowerCase()) || null;
+}
+function minHourlyEquiv(band){
+  if(!band) return null;
+  return band.salaried ? (band.min/HOURS_PER_YEAR) : band.min;
+}
+function bandLabel(v,salaried){
+  if(v===null||v===undefined||v==="") return "";
+  return salaried ? "$"+Math.round(v/1000)+"k" : "$"+v;
+}
+
+/* ---------- seed data (invented demo data) ---------- */
+function seedBands(){return [
+  {id:"bd01",role:"Service Lead",team:"BOH",salaried:false,min:38,max:43},
+  {id:"bd02",role:"TX3",team:"BOH",salaried:false,min:33,max:37},
+  {id:"bd03",role:"TX2",team:"BOH",salaried:false,min:30,max:33},
+  {id:"bd04",role:"TX1",team:"BOH",salaried:false,min:26,max:29},
+  {id:"bd05",role:"Hub Manager",team:"FOH",salaried:false,min:41,max:47},
+  {id:"bd06",role:"FOH 2",team:"FOH",salaried:false,min:28,max:31},
+  {id:"bd07",role:"FOH 1",team:"FOH",salaried:false,min:25,max:27}
+]}
+
+function p(id,name,dept,team,role,nextRole,rate,lastReview,qtr,raiseHourly,status,y27){
+  const o={id,name,dept,role,nextRole,team,rate,lastReview,qtr,raiseHourly,status};
+  if(y27) o.years={"2027":y27};
+  return o;
+}
+function seedPeople(){return [
+  p("dm01","Avery Quinlan","Pluto","FOH","Hub Manager","",44,"2026-02-11","Q1",1,"Approved",{qtr:"Q1",raiseHourly:1,status:"Pending"}),
+  p("dm02","Marisol Duarte","Pluto","BOH","Service Lead","Hub Manager",37,"2025-11-04","Q4",2,"Pending",{qtr:"Q2",raiseHourly:1,status:"Pending"}),
+  p("dm03","Theo Brandt","Pluto","BOH","TX3","Service Lead",34,"2026-03-19","Q2",1,"Approved"),
+  p("dm04","Ines Ramaswamy","Pluto","BOH","TX2","TX3",29,"2025-12-08","Q4",1,"Pending",{qtr:"Q3",raiseHourly:2,status:"Pending"}),
+  p("dm05","Jonah Whitfield","Pluto","BOH","TX1","TX2",27,"2026-06-02","Q3",1,"Not Approved"),
+  p("dm06","Lena Okafor","Pluto","FOH","FOH 2","Hub Manager",30,"2026-04-27","Q2",1,"Approved"),
+  p("dm07","Dmitri Volkov","Pluto","FOH","FOH 1","FOH 2",24,"2025-10-15","Q4",1,"Pending"),
+  p("dm08","Sofia Marchetti","Vega","BOH","TX3","",36,"2026-07-21","","","Not up for raise"),
+  p("dm09","Caleb Ostrander","Vega","BOH","TX1","TX2",26,"2025-09-30","Q4",1,"Pending",{qtr:"Q1",raiseHourly:1,status:"Pending"}),
+  p("dm10","Nadia Fairbanks","Vega","FOH","FOH 1","FOH 2",26,"2026-01-14","Q3",1,"Pending"),
+  p("dm11","Rafael Ibarra","Orion","BOH","TX2","TX3",32,"2026-05-06","Q1",1,"Approved"),
+  p("dm12","Wren Holloway","Orion","FOH","FOH 2","",29,"2026-08-18","","","Pending")
+]}
+function seedLog(people){
+  const L=(id,pid,eff,oldR,newR,note,logged,ts)=>{const pp=people.find(x=>x.id===pid)||{};return {id,personId:pid,name:pp.name,role:pp.role,oldRate:oldR,newRate:newR,effective:eff,approvedBy:"Demo Manager",note,logged,ts}};
+  return [
+    L("lg01","dm01","2026-02-11",42,44,"Q1 cycle, band floor review","2/11/2026 10:14 AM",1770804840000),
+    L("lg02","dm03","2025-08-04",33,34,"Certification bonus step","8/4/2025 2:02 PM",1754316120000),
+    L("lg03","dm03","2026-03-19",33,34,"Promoted to TX3","3/19/2026 9:40 AM",1773913200000),
+    L("lg04","dm06","2026-04-27",28,30,"Moved up to FOH 2","4/27/2026 11:25 AM",1777289100000),
+    L("lg05","dm08","2026-07-21",35,36,"Mid-year adjustment","7/21/2026 4:10 PM",1784650200000),
+    L("lg06","dm11","2026-05-06",31,32,"Q2 cycle","5/6/2026 1:05 PM",1778072700000)
+  ];
+}
+
+/* ---------- state ---------- */
+const REVIEW_DATES={};
+function seedState(){
+  const bands=seedBands();
+  const people=seedPeople();
+  people.forEach(p=>{ if(!p.lastReview && REVIEW_DATES[p.name]) p.lastReview=REVIEW_DATES[p.name]; });
+  const log=seedLog(people);
+  return {people,bands,log};
+}
+let state = seedState();
+let activeView = "plan";
+let raiseTargetId = null;
+
+function load(){
+  try{const raw=localStorage.getItem(STORE_SLOT);if(!raw)return null;const s=JSON.parse(raw);
+    if(!s.people||!s.bands)return null;if(!s.log)s.log=[];return s;}catch(e){return null}
+}
+let saveTimer=null;
+function save(){
+  $("#saveDot").classList.remove("saved");$("#saveText").textContent="Saving";
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(()=>{
+    try{
+      state._savedAt=new Date().toISOString();
+      localStorage.setItem(STORE_SLOT,JSON.stringify(state));
+      $("#saveDot").classList.add("saved");$("#saveText").textContent="Saved (demo, in memory)";
+    }catch(e){$("#saveText").textContent="Save failed"}
+  },350);
+}
+
+/* ---------- computed per person ---------- */
+function compute(person){
+  const band=bandFor(person.role);
+  const r=parseFloat(person.rate);
+  const rh=parseFloat(yf(person).raiseHourly);
+  const hasRate=!isNaN(r);
+  const hasRaise=!isNaN(rh);
+  const minEq=minHourlyEquiv(band);
+  const proposedHourly = hasRate ? r + (hasRaise?rh:0) : null;
+  const gap = (hasRate && minEq!=null) ? Math.max(0, minEq - r) : null;
+  return {
+    band,
+    rateNum: hasRate?r:null,
+    raiseNum: hasRaise?rh:0,
+    minBandLabel: band?bandLabel(band.min,band.salaried):"",
+    maxBandLabel: band?bandLabel(band.max,band.salaried):"",
+    minEq,
+    next6: addMonths(person.lastReview,6),
+    next12: addMonths(person.lastReview,12),
+    nextReview: addMonths(person.lastReview,9),
+    monthsSince: person.lastReview ? Math.max(0,Math.round(monthsSinceToday(person.lastReview))) : null,
+    raiseYearly: hasRaise ? rh*HOURS_PER_YEAR : null,
+    proposedHourly,
+    proposedYearly: proposedHourly!=null ? proposedHourly*HOURS_PER_YEAR : null,
+    hourlyGap: gap,
+    annualGap: gap!=null ? gap*HOURS_PER_YEAR : null,
+    belowMin: gap!=null && gap>0.001,
+  };
+}
+
+/* ================= RAISE PLAN ================= */
+const QUARTERS=["Q1","Q2","Q3","Q4"];
+const PLAN_YEARS=["2026","2027"];
+let planYear="2026";
+let quarterFilter=new Set(QUARTERS);
+function quarterFilterActive(){return quarterFilter.size < QUARTERS.length}
+function setupQuarterFilter(){
+  const bar=document.querySelector(".qfilter");if(!bar)return;
+  bar.querySelectorAll(".qfbtn").forEach(btn=>btn.addEventListener("click",()=>{
+    const q=btn.dataset.qf;
+    if(q==="all"){ quarterFilter=new Set(QUARTERS); }
+    else if(quarterFilter.has(q)){ quarterFilter.delete(q); if(quarterFilter.size===0) quarterFilter=new Set(QUARTERS); }
+    else { quarterFilter.add(q); }
+    syncQuarterFilter();
+    if(activeView!=="plan")switchView("plan");else renderPlan();
+  }));
+  syncQuarterFilter();
+}
+function syncQuarterFilter(){
+  document.querySelectorAll(".qfbtn[data-qf]").forEach(b=>{
+    if(b.dataset.qf==="all") b.classList.toggle("on", !quarterFilterActive());
+    else b.classList.toggle("on", quarterFilter.has(b.dataset.qf));
+  });
+}
+function yf(p){
+  if(planYear==="2026") return p;
+  if(!p.years) p.years={};
+  if(!p.years[planYear]) p.years[planYear]={qtr:"",raiseHourly:"",status:"Pending"};
+  return p.years[planYear];
+}
+const HUB_LIST=["Pluto","Vega","Orion"];
+const TEAM_LIST=["BOH","FOH","DEL","HUB"];
+
+const HUB_COLORS={
+  Pluto:{bg:"#E3EEFB",fg:"#1B4F8A"}, Vega:{bg:"#E3F3EC",fg:"#1F6B47"},
+  Orion:{bg:"#EFE7F7",fg:"#6A3FA0"}
+};
+const TEAM_COLORS={
+  BOH:{bg:"#E7ECF5",fg:"#2A3F66"}, FOH:{bg:"#FBF1DC",fg:"#9A6A12"},
+  DEL:{bg:"#E0F1F1",fg:"#1C6B6B"}, HUB:{bg:"#F3E6BF",fg:"#7A6212"}
+};
+const ROLE_COLORS={
+  "Hub Manager":{bg:"#F1DCA4",fg:"#6E5410"},
+  "Assistant Hub Manager":{bg:"#F7EAC6",fg:"#7A6212"},
+  "Area Service Manager":{bg:"#E9D9F2",fg:"#5E3A8C"},
+  "Service Manager":{bg:"#EFE0BC",fg:"#6E5410"},
+  "Service Lead":{bg:"#D2DDF0",fg:"#17366A"},
+  "Lead Tech":{bg:"#D6E2F4",fg:"#1B3E73"},
+  "TX3":{bg:"#E2EBF8",fg:"#23508C"},
+  "TX2":{bg:"#EAF1FB",fg:"#2E5C9A"},
+  "TX1":{bg:"#F0F5FC",fg:"#3A689E"},
+  "FOH Lead":{bg:"#D7EEDF",fg:"#1F6B47"},
+  "FOH 2":{bg:"#E3F3EA",fg:"#287852"},
+  "FOH 1":{bg:"#EDF7F1",fg:"#2E7D52"},
+  "Delivery Driver Lead":{bg:"#D4ECEC",fg:"#1C6B6B"},
+  "Delivery Driver 2":{bg:"#E0F1F1",fg:"#22807F"},
+  "Delivery Driver 1":{bg:"#EBF6F6",fg:"#2A8E8D"}
+};
+const QUARTER_COLORS={
+  Q1:{c:"#1B4F8A",bg:"#EAF1FA"}, Q2:{c:"#1F6B47",bg:"#EAF4EE"},
+  Q3:{c:"#9A6A12",bg:"#FAF2E1"}, Q4:{c:"#6A3FA0",bg:"#F1EAF8"},
+  Unscheduled:{c:"#5A5E66",bg:"#F1F0EC"},
+  "Not up for raise":{c:"#6B6F77",bg:"#EEEDE7"}
+};
+const GRAY={bg:"#EDEBE3",fg:"#5A5E66"};
+function colorOf(map,v){return map[v]||GRAY}
+
+function optionList(values,sel){
+  const vals = (sel && !values.includes(sel)) ? [...values,sel] : values;
+  return vals.map(v=>`<option value="${esc(v)}"${v===sel?" selected":""}>${esc(v)}</option>`).join("");
+}
+function roleOptions(sel){
+  const roles=state.bands.map(b=>b.role);
+  const list=(sel && !roles.includes(sel)) ? [...roles,sel] : roles;
+  return list.map(r=>`<option value="${esc(r)}"${r===sel?" selected":""}>${esc(r)}</option>`).join("");
+}
+function qtrOptions(sel){
+  return `<option value=""${!QUARTERS.includes(sel)?" selected":""}>—</option>`+
+    QUARTERS.map(q=>`<option value="${q}"${q===sel?" selected":""}>${q}</option>`).join("");
+}
+function colorizeTags(scope){
+  (scope||document).querySelectorAll("select.tag[data-cmap]").forEach(el=>{
+    const map=el.dataset.cmap==="hub"?HUB_COLORS:el.dataset.cmap==="team"?TEAM_COLORS:ROLE_COLORS;
+    const col=colorOf(map,el.value);
+    el.style.background=col.bg;el.style.color=col.fg;
+    el.style.backgroundImage=el.style.backgroundImage;
+  });
+}
+function badge(map,v){
+  if(v===null||v===undefined||v==="") return "";
+  const c=colorOf(map,v);
+  return `<span class="badge" style="background:${c.bg};color:${c.fg}">${esc(v)}</span>`;
+}
+const PLAN_COLS=[
+  "Name","Hub","Team","Role","Next role","Rate","Next raise /hr","Proposed /hr","Proposed /yr",
+  "Min band","Max band","Last increase","Months since","Next review (9 mo)","Status",""
+];
+const PLAN_SORT_FIELDS={Hub:"hub",Team:"team",Role:"role",Rate:"pay"};
+function renderPlanHead(){
+  $("#planHead").innerHTML = PLAN_COLS.map((h,i)=>{
+    const sk=PLAN_SORT_FIELDS[h];
+    const arrow=(sk && planSort.by===sk) ? `<span class="arrow">${planSort.dir<0?"▼":"▲"}</span>` : "";
+    return `<th class="${i===0?'sticky-name ':''}${sk?'sortable':''}" ${sk?`data-psk="${sk}"`:""}>${h}${arrow}</th>`;
+  }).join("");
+  $("#planHead").querySelectorAll("th[data-psk]").forEach(th=>th.addEventListener("click",()=>{
+    const k=th.dataset.psk;
+    if(k===planSort.by) planSort.dir*=-1;
+    else { planSort.by=k; planSort.dir=(k==="hub"||k==="team")?1:-1; }
+    syncSortBar(); renderPlan();
+  }));
+}
+function statusSlug(s){return s==="Approved"?"approved":s==="Not Approved"?"notapproved":s==="Not up for raise"?"none":"pending"}
+function statusPillClass(s){return s==="Approved"?"st-approved":s==="Not Approved"?"st-notapproved":s==="Not up for raise"?"st-none":"st-pending"}
+function rowHay(p){return (p.name+" "+p.role+" "+p.dept+" "+p.team).toLowerCase()}
+const NUR="Not up for raise";
+function memberOfGroup(p,g){
+  const yp=yf(p);
+  if(g===NUR) return yp.status===NUR;
+  if(yp.status===NUR) return false;
+  if(g==="Unscheduled") return !QUARTERS.includes(yp.qtr);
+  return yp.qtr===g;
+}
+function personRowHTML(person){
+  const c=compute(person);
+  const yp=yf(person);
+  const stClass=statusPillClass(yp.status);
+  const pendingFlag = yp.status==="Pending" ? `<span class="flag-pending">Pending</span>` : "";
+  const rateLocked = planYear!=="2026";
+  return `
+    <td class="sticky-name">
+      <div style="display:flex;align-items:center;gap:4px">
+        <span class="drag" title="Drag to a quarter or reorder" data-drag="1">⋮⋮</span>
+        <input class="cell name" data-f="name" value="${esc(person.name)}" />${pendingFlag}
+      </div>
+    </td>
+    <td><select class="cell tag" data-f="dept" data-cmap="hub">${optionList(HUB_LIST,person.dept)}</select></td>
+    <td><select class="cell tag" data-f="team" data-cmap="team">${optionList(TEAM_LIST,person.team)}</select></td>
+    <td><select class="cell tag" data-f="role" data-cmap="role">${roleOptions(person.role)}</select></td>
+    <td><input class="cell" data-f="nextRole" style="min-width:160px" value="${esc(person.nextRole)}" /></td>
+    <td><span class="mwrap rate${rateLocked?' locked':''}" ${rateLocked?'title="Current pay is set on the 2026 tab"':''}><span class="pfx">$</span><input class="cell right w-rate num rateval" type="number" step="0.5" data-f="rate" value="${person.rate}" ${rateLocked?'readonly tabindex="-1"':''} /></span></td>
+    <td><span class="mwrap"><span class="pfx">$</span><input class="cell right w-rate num" type="number" step="0.5" data-f="raiseHourly" value="${yp.raiseHourly}" placeholder="—" /></span></td>
+    <td><span class="calc num money prophr${c.proposedHourly!=null?' filled':''}" data-calc="propHr">${c.proposedHourly!=null?rate(c.proposedHourly):""}</span></td>
+    <td><span class="calc num money" data-calc="propYr">${c.proposedYearly!=null?money(c.proposedYearly):""}</span></td>
+    <td><span class="calc num" data-calc="minBand">${c.minBandLabel}</span></td>
+    <td><span class="calc num" data-calc="maxBand">${c.maxBandLabel}</span></td>
+    <td><input class="cell w-date" type="date" data-f="lastReview" value="${person.lastReview||""}" /></td>
+    <td><span class="calc num${c.monthsSince!=null&&c.monthsSince>=9?' ms-over':''}" data-calc="monthsSince">${c.monthsSince!=null?c.monthsSince+" mo":""}</span></td>
+    <td><span class="nextrev${c.monthsSince!=null&&c.monthsSince>=9?' due':''}"><span class="calc num" data-calc="nextReview">${fmtDate(c.nextReview)}</span>${overPerforming(person)?`<span class="flag-over" title="Last two raises were under 9 months apart">Over-performing</span>`:``}</span></td>
+    <td><select class="status-sel ${stClass}" data-f="status">
+      <option${yp.status==="Approved"?" selected":""}>Approved</option>
+      <option${yp.status==="Pending"?" selected":""}>Pending</option>
+      <option${yp.status==="Not Approved"?" selected":""}>Not Approved</option>
+      <option${yp.status==="Not up for raise"?" selected":""}>Not up for raise</option>
+    </select></td>
+    <td>
+      <div class="rowact">
+        ${planYear==="2026"?`<button class="iconbtn raise" title="Give raise" data-act="raise">$</button>`:``}
+        <button class="iconbtn del" title="Remove from company" data-act="del">✕</button>
+      </div>
+    </td>`;
+}
+function noteRow(cols,text){
+  const tr=document.createElement("tr");tr.className="qnote";
+  tr.innerHTML=`<td colspan="${cols}">${text}</td>`;return tr;
+}
+let planSort={by:"",dir:-1};
+const ROLE_SENIORITY={
+  "Hub Manager":14,"Area Service Manager":13,"Service Manager":12,"Assistant Hub Manager":11,
+  "Service Lead":10,"Lead Tech":9,"FOH Lead":8,"Delivery Driver Lead":7,
+  "TX3":6,"TX2":5,"TX1":4,"FOH 2":3,"FOH 1":2,"Delivery Driver 2":1.5,"Delivery Driver 1":1
+};
+function roleRank(role){
+  if(role in ROLE_SENIORITY) return ROLE_SENIORITY[role];
+  const b=bandFor(role);
+  return b ? (b.salaried ? 8 : 5) : 0;
+}
+function payOf(p){const r=parseFloat(p.rate);return isNaN(r)?-Infinity:r}
+function planComparator(fld,dir){
+  return (a,b)=>{
+    let av,bv,cmp;
+    if(fld==="pay"){av=payOf(a);bv=payOf(b);cmp=av-bv}
+    else if(fld==="role"){av=roleRank(a.role);bv=roleRank(b.role);cmp=av-bv}
+    else if(fld==="hub"){av=(a.dept||"").toLowerCase();bv=(b.dept||"").toLowerCase();cmp=av<bv?-1:av>bv?1:0}
+    else if(fld==="team"){av=(a.team||"").toLowerCase();bv=(b.team||"").toLowerCase();cmp=av<bv?-1:av>bv?1:0}
+    else cmp=0;
+    if(cmp!==0) return cmp*dir;
+    return payOf(b)-payOf(a);
+  };
+}
+function dirLabel(){
+  if(planSort.by==="hub"||planSort.by==="team")
+    return planSort.dir<0 ? "Z → A" : "A → Z";
+  return planSort.dir<0 ? "High → Low" : "Low → High";
+}
+function setupYearBar(){
+  const bar=document.querySelector(".yeartoggle");if(!bar)return;
+  bar.querySelectorAll(".yrbtn").forEach(btn=>btn.addEventListener("click",()=>{
+    planYear=btn.dataset.yr;
+    bar.querySelectorAll(".yrbtn").forEach(b=>b.classList.toggle("active",b.dataset.yr===planYear));
+    if(activeView!=="plan")switchView("plan");else renderPlan();
+    toast("Planning "+planYear);
+  }));
+}
+function setupSortBar(){
+  const bar=document.querySelector(".sortbar");if(!bar)return;
+  bar.querySelectorAll(".sortbtn").forEach(btn=>btn.addEventListener("click",()=>{
+    const k=btn.dataset.sk;
+    if(k===planSort.by){ if(k) planSort.dir*=-1; }
+    else { planSort.by=k; planSort.dir = (k==="hub"||k==="team") ? 1 : -1; }
+    syncSortBar();renderPlan();
+  }));
+  $("#sortDir").addEventListener("click",()=>{planSort.dir*=-1;syncSortBar();renderPlan()});
+  syncSortBar();
+}
+function syncSortBar(){
+  document.querySelectorAll(".sortbtn").forEach(b=>b.classList.toggle("active",b.dataset.sk===planSort.by));
+  const d=$("#sortDir");
+  if(planSort.by){d.style.display="";d.textContent=dirLabel();}
+  else d.style.display="none";
+}
+function renderPlan(){
+  renderPlanHead();
+  const q=($("#planSearch").value||"").toLowerCase();
+  const body=$("#planBody");body.innerHTML="";
+  const cols=PLAN_COLS.length;
+  const qActive=quarterFilterActive();
+  [...QUARTERS,"Unscheduled",NUR].forEach(g=>{
+    const isNUR=g===NUR;
+    if(QUARTERS.includes(g) && !quarterFilter.has(g)) return;
+    if(qActive && (g==="Unscheduled"||isNUR)) return;
+    const members=state.people.filter(p=>memberOfGroup(p,g));
+    if(g==="Unscheduled" && members.length===0) return;
+    const visible=members.filter(p=> !q || rowHay(p).includes(q));
+    if(planSort.by) visible.sort(planComparator(planSort.by,planSort.dir));
+    const pendCount=members.filter(p=>yf(p).status==="Pending").length;
+    const qc=QUARTER_COLORS[g]||QUARTER_COLORS["Unscheduled"];
+    let meta;
+    if(isNUR){
+      meta=`<span class="qmeta"><span class="qfig"><span class="ql">no raise this cycle</span></span></span>`;
+    }else{
+      const spend=members.reduce((s,p)=> s+(compute(p).raiseYearly||0),0);
+      const hrTotal=members.reduce((s,p)=> s+(compute(p).raiseNum||0),0);
+      meta=`<span class="qmeta">
+        <span class="qfig"><span class="qv">${money(spend)}</span><span class="ql">/ year</span></span>
+        <span class="qfig"><span class="qv">${money(spend/4)}</span><span class="ql">/ quarter</span></span>
+        <span class="qfig"><span class="qv">${money(spend/12)}</span><span class="ql">/ month</span></span>
+        <span class="qfig"><span class="qv">+$${Math.round(hrTotal*100)/100}</span><span class="ql">/ hr total</span></span>
+      </span>`;
+    }
+    const banner=document.createElement("tr");
+    banner.className="qbanner";banner.dataset.qbanner=g;
+    banner.innerHTML=`<td colspan="${cols}"><div class="qbar" style="--qc:${qc.c};--qbg:${qc.bg}">
+      <span class="qname">${g}</span>
+      <span class="qppl">${members.length} ${members.length===1?"person":"people"}</span>
+      ${pendCount?`<span class="qpend">${pendCount} pending</span>`:""}
+      ${meta}
+    </div></td>`;
+    body.appendChild(banner);
+    if(visible.length===0){
+      const emptyText = isNUR ? "Set a person's status to Not up for raise, or drag them here"
+                        : (q ? "No matches in "+g : "Drag people here to slot them into "+g);
+      body.appendChild(noteRow(cols, emptyText));
+    }else{
+      visible.forEach(p=>{
+        const tr=document.createElement("tr");
+        tr.dataset.id=p.id;tr.dataset.qtr=g;tr.draggable=false;
+        tr.className="st-row-"+statusSlug(yf(p).status);
+        tr.innerHTML=personRowHTML(p);
+        body.appendChild(tr);
+      });
+    }
+  });
+  wirePlanRow();
+  colorizeTags(document.getElementById("planBody"));
+  renderPlanStats();
+  renderLegend();
+  updateCounts();
+}
+function esc(v){return (v===null||v===undefined?"":String(v)).replace(/"/g,"&quot;").replace(/</g,"&lt;")}
+
+function wirePlanRow(){
+  $("#planBody").querySelectorAll("input.cell,select.cell").forEach(el=>{
+    el.addEventListener("change",onCellEdit);
+    if(el.tagName==="INPUT")el.addEventListener("input",onCellLiveCalc);
+  });
+  $("#planBody").querySelectorAll("select.status-sel").forEach(el=>el.addEventListener("change",onStatusEdit));
+  $("#planBody").querySelectorAll("[data-act]").forEach(b=>b.addEventListener("click",onRowAct));
+  setupDrag();
+}
+function rowId(el){return el.closest("tr").dataset.id}
+function findPerson(id){return state.people.find(x=>x.id===id)}
+function onCellEdit(e){
+  const id=rowId(e.target),f=e.target.dataset.f,person=findPerson(id);if(!person)return;
+  if(f==="rate" && planYear!=="2026") return;
+  let v=e.target.value;
+  if(f==="rate"||f==="raiseHourly"){v=v===""?"":parseFloat(v)}
+  if(f==="raiseHourly") yf(person).raiseHourly=v;
+  else person[f]=v;
+  save();
+  renderPlan();
+}
+function onCellLiveCalc(e){
+  const f=e.target.dataset.f;
+  if(f!=="rate" && f!=="raiseHourly" && f!=="lastReview") return;
+  const tr=e.target.closest("tr");const base=findPerson(tr.dataset.id);if(!base)return;
+  const rateVal = f==="rate" ? parseFloat(e.target.value) : parseFloat(base.rate);
+  const raiseVal = f==="raiseHourly" ? parseFloat(e.target.value) : parseFloat(yf(base).raiseHourly);
+  const lastRev = f==="lastReview" ? e.target.value : base.lastReview;
+  const set=(k,v)=>{const el=tr.querySelector('[data-calc="'+k+'"]');if(el)el.textContent=v};
+  const ms = lastRev ? Math.max(0,Math.round(monthsSinceToday(lastRev))) : null;
+  set("monthsSince", ms!=null? ms+" mo":"");
+  const msEl=tr.querySelector('[data-calc="monthsSince"]');
+  if(msEl) msEl.classList.toggle("ms-over", ms!=null && ms>=9);
+  set("nextReview", fmtDate(addMonths(lastRev,9)));
+  const hasRate=!isNaN(rateVal), hasRaise=!isNaN(raiseVal);
+  const propHr = hasRate ? rateVal+(hasRaise?raiseVal:0) : null;
+  set("propHr", propHr!=null?rate(propHr):"");
+  set("propYr", propHr!=null?money(propHr*HOURS_PER_YEAR):"");
+}
+function onStatusEdit(e){
+  const id=rowId(e.target),person=findPerson(id);if(!person)return;
+  yf(person).status=e.target.value;
+  save();renderPlan();
+}
+function onRowAct(e){
+  const id=rowId(e.target),act=e.target.dataset.act;
+  if(act==="del"){
+    const person=findPerson(id);
+    if(confirm("Remove "+(person?person.name:"this person")+" from the tracker?")){
+      state.people=state.people.filter(x=>x.id!==id);save();renderPlan();renderRates();toast("Removed");
+    }
+  }else if(act==="raise"){openRaise(id)}
+}
+
+/* drag reorder + slot into quarter */
+let dragId=null;
+function reorderTo(dragId,targetId,newQtr){
+  const from=state.people.findIndex(p=>p.id===dragId);
+  if(from<0)return;
+  const moved=state.people.splice(from,1)[0];
+  const my=yf(moved);
+  if(newQtr===NUR){
+    my.status=NUR;
+  }else{
+    my.qtr=(newQtr==="Unscheduled")?"":newQtr;
+    if(my.status===NUR) my.status="Pending";
+  }
+  if(targetId){
+    let t=state.people.findIndex(p=>p.id===targetId);
+    if(t<0)t=state.people.length;
+    state.people.splice(t,0,moved);
+  }else{
+    let lastIdx=-1;
+    state.people.forEach((p,i)=>{ if(memberOfGroup(p,newQtr)) lastIdx=i; });
+    state.people.splice(lastIdx+1,0,moved);
+  }
+}
+function setupDrag(){
+  const body=$("#planBody");
+  body.querySelectorAll("tr[data-id]").forEach(tr=>{
+    const handle=tr.querySelector('[data-drag]');
+    if(handle)handle.addEventListener("mousedown",()=>{tr.draggable=true});
+    tr.addEventListener("dragstart",e=>{dragId=tr.dataset.id;tr.classList.add("dragging");e.dataTransfer.effectAllowed="move"});
+    tr.addEventListener("dragend",()=>{tr.draggable=false;tr.classList.remove("dragging");clearDropHints()});
+    tr.addEventListener("dragover",e=>{e.preventDefault();tr.classList.add("dragover")});
+    tr.addEventListener("dragleave",()=>tr.classList.remove("dragover"));
+    tr.addEventListener("drop",e=>{
+      e.preventDefault();tr.classList.remove("dragover");
+      if(!dragId||dragId===tr.dataset.id)return;
+      reorderTo(dragId,tr.dataset.id,tr.dataset.qtr);
+      save();renderPlan();
+    });
+  });
+  body.querySelectorAll("tr.qbanner").forEach(b=>{
+    b.addEventListener("dragover",e=>{e.preventDefault();b.classList.add("dropok")});
+    b.addEventListener("dragleave",()=>b.classList.remove("dropok"));
+    b.addEventListener("drop",e=>{
+      e.preventDefault();b.classList.remove("dropok");
+      if(!dragId)return;
+      reorderTo(dragId,null,b.dataset.qbanner);
+      save();renderPlan();toast("Moved to "+b.dataset.qbanner);
+    });
+  });
+}
+function clearDropHints(){
+  $("#planBody").querySelectorAll(".dragover").forEach(r=>r.classList.remove("dragover"));
+  $("#planBody").querySelectorAll(".dropok").forEach(r=>r.classList.remove("dropok"));
+}
+
+function planScopePeople(){
+  return quarterFilterActive()
+    ? state.people.filter(p=>quarterFilter.has(yf(p).qtr))
+    : state.people;
+}
+function renderPlanStats(){
+  const people=planScopePeople();
+  const scoped=quarterFilterActive();
+  const totalGap=people.reduce((s,p)=>{const c=compute(p);return s+(c.annualGap||0)},0);
+  const below=people.filter(p=>compute(p).belowMin).length;
+  const proposedSpend=people.reduce((s,p)=>{const c=compute(p);return s+(c.raiseYearly||0)},0);
+  const approved=people.filter(p=>yf(p).status==="Approved").length;
+  const label = scoped ? [...quarterFilter].sort().join(", ") : "all quarters";
+  $("#planStats").innerHTML=`
+    ${stat("Total gap to minimum",money(totalGap),below+" below their floor · "+label,"bad")}
+    ${stat("Planned raise spend",money(proposedSpend),"proposed raises /yr · "+label,"")}
+    ${stat("Approved",approved+" / "+people.length,"raises signed off · "+label,"ok")}
+    ${stat("Residual after plan",money(residualAfterPlan(people)),"still short once raises land","")}
+  `;
+}
+function residualAfterPlan(people){
+  return (people||state.people).reduce((s,p)=>{
+    const c=compute(p);if(c.minEq==null||c.rateNum==null)return s;
+    const after=c.rateNum+(c.raiseNum||0);
+    return s+Math.max(0,(c.minEq-after))*HOURS_PER_YEAR;
+  },0);
+}
+function stat(k,v,s,cls){return `<div class="stat ${cls}"><div class="k">${k}</div><div class="v num">${v}</div><div class="s">${s}</div></div>`}
+
+function renderLegend(){
+  const sw=(label,c)=>`<span class="badge" style="background:${c.bg};color:${c.fg}">${label}</span>`;
+  const hubs=HUB_LIST.map(h=>sw(h,colorOf(HUB_COLORS,h))).join("");
+  const teams=TEAM_LIST.map(t=>sw(t,colorOf(TEAM_COLORS,t))).join("");
+  $("#planRollup").innerHTML=`<div class="legend"><span class="lk">Hubs</span>${hubs}<span class="lk">Teams</span>${teams}<span class="lk">Roles</span><span style="font-size:11.5px;color:var(--ink-soft)">colored by tier in the Role column</span></div>`;
+}
+
+/* ================= EMPLOYEE RATES ================= */
+let ratesSort={by:"annualGap",dir:-1};
+const RATE_COLS=[
+  {h:"Name",k:"name"},{h:"Role",k:"role"},{h:"Hub",k:"dept"},{h:"Team",k:"team"},
+  {h:"Current rate",k:"rateNum",r:1},{h:"Band position",k:null},
+  {h:"Min (role)",k:"minEq",r:1},{h:"Gap /hr",k:"hourlyGap",r:1},
+  {h:"Annual gap",k:"annualGap",r:1},
+  {h:"Last raise / review",k:"lastReview"},{h:"Months since",k:"monthsSince",r:1},
+  {h:"Status",k:"belowMin"},{h:"",k:null}
+];
+const RATE_TEXT_FIELDS=["name","team","dept","lastReview"];
+let ratesFilter={hub:"",role:""};
+function rateFilterActive(){return !!(ratesFilter.hub||ratesFilter.role)}
+function populateRateFilters(){
+  const hubCount={},roleCount={};
+  state.people.forEach(p=>{
+    if(p.dept) hubCount[p.dept]=(hubCount[p.dept]||0)+1;
+    if(p.role) roleCount[p.role]=(roleCount[p.role]||0)+1;
+  });
+  const hubs=[...new Set([...HUB_LIST,...Object.keys(hubCount)])];
+  const roles=[...new Set([...state.bands.map(b=>b.role),...Object.keys(roleCount)])].filter(Boolean);
+  if(ratesFilter.hub && !hubs.includes(ratesFilter.hub)) ratesFilter.hub="";
+  if(ratesFilter.role && !roles.includes(ratesFilter.role)) ratesFilter.role="";
+  const opt=(v,sel,count)=>`<option value="${esc(v)}"${v===sel?" selected":""}>${esc(v)}${count?" ("+count+")":""}</option>`;
+  const hubSel=$("#ratesHubFilter"), roleSel=$("#ratesRoleFilter");
+  hubSel.innerHTML=`<option value=""${ratesFilter.hub?"":" selected"}>All hubs</option>`+
+    hubs.map(h=>opt(h,ratesFilter.hub,hubCount[h]||0)).join("");
+  roleSel.innerHTML=`<option value=""${ratesFilter.role?"":" selected"}>All roles</option>`+
+    roles.map(r=>opt(r,ratesFilter.role,roleCount[r]||0)).join("");
+  hubSel.classList.toggle("on",!!ratesFilter.hub);
+  roleSel.classList.toggle("on",!!ratesFilter.role);
+  $("#ratesClearFilter").style.display=rateFilterActive()?"":"none";
+}
+function setupRateFilters(){
+  $("#ratesHubFilter").addEventListener("change",e=>{ratesFilter.hub=e.target.value;renderRates()});
+  $("#ratesRoleFilter").addEventListener("change",e=>{ratesFilter.role=e.target.value;renderRates()});
+  $("#ratesClearFilter").addEventListener("click",()=>{ratesFilter={hub:"",role:""};$("#ratesSearch").value="";renderRates()});
+}
+function renderRatesHead(){
+  $("#ratesHead").innerHTML=RATE_COLS.map((c,i)=>{
+    const sortable=c.k!==null;
+    const arrow=ratesSort.by===c.k?`<span class="arrow">${ratesSort.dir<0?"▼":"▲"}</span>`:"";
+    return `<th class="${i===0?'sticky-name ':''}${sortable?'sortable':''}" ${sortable?`data-k="${c.k}"`:""}>${c.h}${arrow}</th>`;
+  }).join("");
+  $("#ratesHead").querySelectorAll("th[data-k]").forEach(th=>th.addEventListener("click",()=>{
+    const k=th.dataset.k;if(ratesSort.by===k)ratesSort.dir*=-1;else{ratesSort.by=k;ratesSort.dir=-1}renderRates();
+  }));
+}
+function renderRates(){
+  populateRateFilters();
+  const q=($("#ratesSearch").value||"").toLowerCase();
+  const rows=state.people.map(p=>({p,c:compute(p)}))
+    .filter(o=>!ratesFilter.hub || (o.p.dept||"")===ratesFilter.hub)
+    .filter(o=>!ratesFilter.role || (o.p.role||"")===ratesFilter.role)
+    .filter(o=>!q || (o.p.name+" "+o.p.role+" "+o.p.team+" "+(o.p.dept||"")).toLowerCase().includes(q));
+  rows.sort((a,b)=>{
+    const k=ratesSort.by;let av,bv;
+    if(k==="role"){
+      const ar=roleRank(a.p.role), br=roleRank(b.p.role);
+      if(ar!==br) return (ar-br)*ratesSort.dir;
+      return (b.c.rateNum??-Infinity)-(a.c.rateNum??-Infinity);
+    }
+    if(RATE_TEXT_FIELDS.includes(k)){
+      av=(a.p[k]||"").toLowerCase();bv=(b.p[k]||"").toLowerCase();
+      if(av!==bv) return (av<bv?-1:1)*ratesSort.dir;
+      return (b.c.rateNum??-Infinity)-(a.c.rateNum??-Infinity);
+    }
+    if(k==="belowMin"){av=a.c.belowMin?1:0;bv=b.c.belowMin?1:0}
+    else{av=a.c[k]??-1;bv=b.c[k]??-1}
+    if(av!==bv) return (av-bv)*ratesSort.dir;
+    return (b.c.rateNum??-Infinity)-(a.c.rateNum??-Infinity);
+  });
+  const body=$("#ratesBody");
+  const wrap=$("#ratesTable").closest(".tablewrap");
+  const keepX=wrap?wrap.scrollLeft:0, keepY=wrap?wrap.scrollTop:0;
+  body.innerHTML="";
+  rows.forEach(({p,c})=>{
+    const tr=document.createElement("tr");
+    tr.dataset.id=p.id;
+    tr.innerHTML=`
+      <td class="sticky-name"><input class="cell name" value="${esc(p.name)}" data-f="name" data-id="${p.id}" /></td>
+      <td><select class="cell tag" data-cmap="role" data-f="role" data-id="${p.id}">${roleOptions(p.role)}</select></td>
+      <td><select class="cell tag" data-cmap="hub" data-f="dept" data-id="${p.id}">${optionList(HUB_LIST,p.dept)}</select></td>
+      <td><select class="cell tag" data-cmap="team" data-f="team" data-id="${p.id}">${optionList(TEAM_LIST,p.team)}</select></td>
+      <td><span class="mwrap rate"><span class="pfx">$</span><input class="cell right w-rate num rateval" type="number" step="0.5" data-f="rate" data-id="${p.id}" value="${p.rate}" /></span></td>
+      <td>${railHTML(c)}</td>
+      <td class="num" style="text-align:right">${c.minEq!=null?(c.band&&c.band.salaried?money2(c.minEq):rate(c.minEq)):""}</td>
+      <td class="num" style="text-align:right">${c.hourlyGap!=null&&c.hourlyGap>0?'<span class="num">+$'+ (Math.round(c.hourlyGap*100)/100) +'</span>':(c.hourlyGap===0?'<span class="pos">$0</span>':'')}</td>
+      <td class="num" style="text-align:right;font-weight:600">${c.annualGap!=null&&c.annualGap>0?money(c.annualGap):(c.annualGap===0?'<span class="pos">$0</span>':'')}</td>
+      <td><input class="cell w-date" type="date" data-f="lastReview" data-id="${p.id}" value="${p.lastReview||""}" /></td>
+      <td class="num" style="text-align:right"><span class="calc num${c.monthsSince!=null&&c.monthsSince>=9?' ms-over':''}">${c.monthsSince!=null?c.monthsSince+" mo":""}</span></td>
+      <td>${c.minEq==null?'':(c.belowMin?'<span class="chip below">Below min</span>':'<span class="chip at">At or above</span>')}</td>
+      <td><div class="rowact"><button class="iconbtn del" title="Remove from company" data-ratedel="${p.id}">✕</button></div></td>`;
+    body.appendChild(tr);
+  });
+  if(rows.length===0){
+    const head = !state.people.length ? "Nobody here yet"
+               : rateFilterActive() ? "Nobody matches this filter" : "No matches";
+    const sub  = !state.people.length ? "Use Add person to create your first record."
+               : rateFilterActive() ? "Try another hub or role, or hit Clear." : "Try a different search.";
+    body.innerHTML=`<tr><td colspan="${RATE_COLS.length}"><div class="empty"><b>${head}</b>${sub}</div></td></tr>`;
+  }
+  body.querySelectorAll("input.cell,select.cell").forEach(el=>el.addEventListener("change",onRateCellEdit));
+  body.querySelectorAll("[data-ratedel]").forEach(b=>b.addEventListener("click",()=>{
+    const person=findPerson(b.dataset.ratedel);
+    if(confirm("Remove "+(person?person.name:"this person")+" from the tracker?")){
+      state.people=state.people.filter(x=>x.id!==b.dataset.ratedel);
+      save();renderRates();renderPlan();toast("Removed");
+    }
+  }));
+  colorizeTags(body);
+  if(wrap){wrap.scrollLeft=keepX;wrap.scrollTop=keepY;}
+  renderRatesStats(rows);
+  updateCounts();
+}
+function onRateCellEdit(e){
+  const el=e.target, person=findPerson(el.dataset.id); if(!person) return;
+  const f=el.dataset.f;
+  if(f==="rate") person.rate = el.value===""?"":parseFloat(el.value);
+  else person[f]=el.value;
+  save();
+  renderRates();
+  renderPlan();
+}
+function railHTML(c){
+  if(!c.band) return '<span class="lbl">no band</span>';
+  const min=c.band.salaried?c.band.min/HOURS_PER_YEAR:c.band.min;
+  const max=c.band.salaried?c.band.max/HOURS_PER_YEAR:c.band.max;
+  if(c.rateNum==null||max<=min) return '';
+  const span=max-min;
+  let pct=((c.rateNum-min)/span)*100;
+  const under=c.rateNum<min;
+  pct=Math.max(0,Math.min(100,pct));
+  const fillPct=under?0:pct;
+  return `<div class="rail">
+    <div class="track"><div class="fill" style="width:${fillPct}%"></div><div class="pin ${under?'under':''}" style="left:calc(${under?0:pct}% - 1.5px)"></div></div>
+    <span class="lbl">${under?'under floor':'in band'}</span>
+  </div>`;
+}
+function renderRatesStats(rows){
+  const below=rows.filter(o=>o.c.belowMin);
+  const totalGap=below.reduce((s,o)=>s+(o.c.annualGap||0),0);
+  const byTeam={};below.forEach(o=>{byTeam[o.p.team]=(byTeam[o.p.team]||0)+(o.c.annualGap||0)});
+  const teamStr=Object.entries(byTeam).sort((a,b)=>b[1]-a[1]).map(([t,v])=>t+" "+money(v)).join("  ·  ")||"none";
+  const scope=[ratesFilter.hub,ratesFilter.role].filter(Boolean).join(" · ");
+  $("#ratesStats").innerHTML=`
+    ${stat("Below minimum",below.length+" people","of "+rows.length+" shown"+(scope?" · "+scope:""),"bad")}
+    ${stat("Total annual gap",money(totalGap),scope?"to reach the floor for "+scope:"to reach every role floor","bad")}
+    ${stat("Avg per person",below.length?money(totalGap/below.length):"$0","mean closure cost","")}
+    ${stat("Gap by team",Object.keys(byTeam).length,teamStr,"")}
+  `;
+}
+
+/* ================= RAISE LOG ================= */
+function renderLog(){
+  const q=($("#logSearch").value||"").toLowerCase();
+  const body=$("#logBody");body.innerHTML="";
+  const rows=state.log.slice().sort((a,b)=>b.ts-a.ts)
+    .filter(e=>!q || (e.name+" "+e.approvedBy+" "+e.note+" "+e.role).toLowerCase().includes(q));
+  rows.forEach(e=>{
+    const dh=e.newRate-e.oldRate;
+    const tr=document.createElement("tr");
+    tr.innerHTML=`
+      <td class="num">${fmtDate(e.effective)}</td>
+      <td style="font-weight:600">${esc(e.name)}</td>
+      <td>${esc(e.role)}</td>
+      <td class="num">${rate(e.oldRate)}</td>
+      <td class="num" style="font-weight:600">${rate(e.newRate)}</td>
+      <td class="num pos">+$${(Math.round(dh*100)/100)}</td>
+      <td class="num pos">+${money(dh*HOURS_PER_YEAR)}</td>
+      <td>${esc(e.approvedBy)}</td>
+      <td style="white-space:normal;max-width:260px;color:var(--ink-soft)">${esc(e.note)}</td>
+      <td style="color:var(--ink-soft);font-size:11.5px">${esc(e.logged)}</td>
+      <td><button class="iconbtn del" title="Delete entry" data-logdel="${e.id}">✕</button></td>`;
+    body.appendChild(tr);
+  });
+  if(rows.length===0)body.innerHTML=`<tr><td colspan="11"><div class="empty"><b>No raises logged yet</b>Use the $ button on the Raise Plan tab to document a raise.</div></td></tr>`;
+  body.querySelectorAll("[data-logdel]").forEach(b=>b.addEventListener("click",()=>{
+    if(confirm("Delete this log entry? It will not change the person's current rate.")){
+      state.log=state.log.filter(x=>x.id!==b.dataset.logdel);save();renderLog();updateCounts();
+    }
+  }));
+  $("#logStats").innerHTML=(()=>{
+    const total=state.log.reduce((s,e)=>s+(e.newRate-e.oldRate)*HOURS_PER_YEAR,0);
+    const ytd=state.log.filter(e=>new Date(e.effective).getFullYear()===new Date().getFullYear());
+    const ytdSum=ytd.reduce((s,e)=>s+(e.newRate-e.oldRate)*HOURS_PER_YEAR,0);
+    return `${stat("Raises logged",state.log.length,"all time","ok")}
+      ${stat("Annualized increase",money(total),"total recorded","")}
+      ${stat("This year",ytd.length+" raises",money(ytdSum)+" added","")}`;
+  })();
+}
+
+/* ================= PAY BANDS ================= */
+function renderBands(){
+  const body=$("#bandsBody");body.innerHTML="";
+  state.bands.forEach(b=>{
+    const tr=document.createElement("tr");
+    tr.innerHTML=`
+      <td><input class="cell name" data-bf="role" value="${esc(b.role)}" data-id="${b.id}" style="min-width:170px" /></td>
+      <td><input class="cell" data-bf="team" value="${esc(b.team)}" data-id="${b.id}" style="width:70px" /></td>
+      <td><select class="cell" data-bf="salaried" data-id="${b.id}">
+        <option value="false"${!b.salaried?" selected":""}>Hourly</option>
+        <option value="true"${b.salaried?" selected":""}>Salary</option>
+      </select></td>
+      <td><span class="mwrap"><span class="pfx">$</span><input class="cell right num" type="number" data-bf="min" value="${b.min}" data-id="${b.id}" style="width:104px" /></span></td>
+      <td><span class="mwrap"><span class="pfx">$</span><input class="cell right num" type="number" data-bf="max" value="${b.max}" data-id="${b.id}" style="width:104px" /></span></td>
+      <td><button class="iconbtn del" data-banddel="${b.id}" title="Delete role">✕</button></td>`;
+    body.appendChild(tr);
+  });
+  body.querySelectorAll("input.cell,select.cell").forEach(el=>el.addEventListener("change",e=>{
+    const band=state.bands.find(x=>x.id===e.target.dataset.id);if(!band)return;
+    const f=e.target.dataset.bf;let v=e.target.value;
+    if(f==="min"||f==="max")v=parseFloat(v)||0;
+    if(f==="salaried")v=(v==="true");
+    band[f]=v;save();renderBands();
+    if(activeView==="plan")renderPlan();if(activeView==="rates")renderRates();
+  }));
+  body.querySelectorAll("[data-banddel]").forEach(b=>b.addEventListener("click",()=>{
+    if(confirm("Delete this role band? People in this role will lose their band lookup until reassigned.")){
+      state.bands=state.bands.filter(x=>x.id!==b.dataset.banddel);save();renderBands();renderPlan();renderRates();
+    }
+  }));
+}
+
+/* ================= RAISE MODAL ================= */
+function openRaise(id){
+  raiseTargetId=id;const person=findPerson(id);if(!person)return;
+  const c=compute(person);
+  $("#raiseTitle").textContent="Give raise — "+person.name;
+  $("#raiseSub").textContent=person.role+(c.band?(c.band.salaried?"  ·  floor "+money2(c.minEq)+"/hr":"  ·  floor "+rate(c.minEq)):"");
+  const planned = c.raiseNum || 0;
+  const suggested = c.rateNum!=null ? (Math.round((c.rateNum+planned)*100)/100) : "";
+  $("#raiseNewRate").value=suggested;
+  $("#raiseDate").value=todayISO();
+  $("#raiseNote").value=person.qtr?("Quarter "+person.qtr):"";
+  updateRaisePreview();
+  $("#raiseScrim").classList.add("open");
+  $("#raiseNewRate").focus();
+}
+function updateRaisePreview(){
+  const person=findPerson(raiseTargetId);if(!person)return;
+  const old=parseFloat(person.rate)||0;
+  const nw=parseFloat($("#raiseNewRate").value)||0;
+  const dh=nw-old;
+  const c=compute(person);
+  let line="";
+  if(c.minEq!=null){
+    const after=nw;
+    if(after>=c.minEq-0.001)line=`<div style="color:var(--ok);font-weight:700;margin-top:4px">Reaches the role floor ✓</div>`;
+    else line=`<div style="color:var(--bad);font-weight:700;margin-top:4px">Still ${rate(c.minEq-after)} under floor</div>`;
+  }
+  $("#raisePreview").innerHTML=`
+    ${rate(old)} <span style="color:var(--ink-soft)">→</span> <span class="big">${rate(nw)}</span> /hr
+    &nbsp; <span style="color:var(--ink-soft)">that is</span> <b class="${dh>=0?'':''}" style="color:${dh>=0?'var(--ok)':'var(--bad)'}">${dh>=0?'+':''}${Math.round(dh*100)/100}/hr · ${dh>=0?'+':''}${money(dh*HOURS_PER_YEAR)}/yr</b>
+    ${line}`;
+}
+function confirmRaise(){
+  const person=findPerson(raiseTargetId);if(!person)return;
+  const old=parseFloat(person.rate)||0;
+  const nw=parseFloat($("#raiseNewRate").value);
+  if(isNaN(nw)){toast("Enter a new rate");return}
+  const eff=$("#raiseDate").value||todayISO();
+  state.log.push({
+    id:uid(),personId:person.id,name:person.name,role:person.role,
+    oldRate:old,newRate:nw,effective:eff,
+    approvedBy:"Demo Manager",
+    note:$("#raiseNote").value.trim(),
+    logged:nowStamp(),ts:Date.now()
+  });
+  person.rate=nw;
+  person.lastReview=eff;
+  yf(person).raiseHourly="";
+  yf(person).status=NUR;
+  save();
+  $("#raiseScrim").classList.remove("open");
+  renderPlan();renderRates();renderLog();updateCounts();
+  toast(person.name+" raised to "+rate(nw));
+}
+
+/* ================= IMPORT / EXPORT ================= */
+function exportJson(){
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+  download(blob,"ops-comp-tracker_"+todayISO()+".json");
+  toast("Save file downloaded");
+}
+function importJson(file){
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{
+      const s=JSON.parse(reader.result);
+      if(!s.people||!s.bands)throw new Error("bad");
+      if(!s.log)s.log=[];
+      if(!confirm("Load this file? It replaces what is currently on this device."))return;
+      state=s;save();renderAll();toast("File loaded");
+    }catch(e){alert("That file could not be read as a tracker save file.")}
+  };
+  reader.readAsText(file);
+}
+function exportCsv(){
+  const head=["Year","Name","Hub","Team","Role","Next role","Rate","Next raise /hr","Min band","Max band","Last increase","Months since","Next review","Qtr","Proposed /hr","Proposed /yr","Status"];
+  const lines=[head];
+  state.people.forEach(p=>{
+    const c=compute(p);const yp=yf(p);
+    lines.push([planYear,p.name,p.dept,p.team,p.role,p.nextRole,p.rate,yp.raiseHourly,c.minBandLabel,c.maxBandLabel,fmtDate(p.lastReview),c.monthsSince??"",fmtDate(c.nextReview),yp.qtr,c.proposedHourly??"",c.proposedYearly??"",yp.status]);
+  });
+  downloadCsv(lines,"ops-comp-plan-"+planYear+"_"+todayISO()+".csv");
+}
+function exportLogCsv(){
+  const head=["Effective","Name","Role","Old rate","New rate","Change /hr","Change /yr","Approved by","Note","Logged"];
+  const lines=[head];
+  state.log.slice().sort((a,b)=>b.ts-a.ts).forEach(e=>{
+    lines.push([fmtDate(e.effective),e.name,e.role,e.oldRate,e.newRate,(e.newRate-e.oldRate),(e.newRate-e.oldRate)*HOURS_PER_YEAR,e.approvedBy,e.note,e.logged]);
+  });
+  downloadCsv(lines,"ops-raise-log_"+todayISO()+".csv");
+}
+function downloadCsv(lines,name){
+  const csv=lines.map(r=>r.map(c=>{c=c===null||c===undefined?"":String(c);return /[",\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c}).join(",")).join("\n");
+  download(new Blob([csv],{type:"text/csv"}),name);
+}
+function download(blob,name){
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+
+/* ================= ADD ================= */
+function openAddPerson(){
+  $("#apName").value="";
+  $("#apRole").innerHTML = state.bands.length
+    ? roleOptions(state.bands[0].role)
+    : `<option value="">No roles yet — add them on the Pay Bands tab</option>`;
+  $("#apHub").innerHTML=optionList(HUB_LIST,HUB_LIST[0]);
+  $("#apTeam").innerHTML=optionList(TEAM_LIST,TEAM_LIST[0]);
+  $("#apQtr").innerHTML=qtrOptions("");
+  $("#apStatus").value="Pending";
+  $("#apRate").value="";
+  $("#apReview").value="";
+  $("#apErr").textContent="";
+  updateAddPreview();
+  $("#addScrim").classList.add("open");
+  setTimeout(()=>$("#apName").focus(),30);
+}
+function updateAddPreview(){
+  const role=$("#apRole").value, r=parseFloat($("#apRate").value), lr=$("#apReview").value;
+  const band=bandFor(role), minEq=minHourlyEquiv(band);
+  const bits=[];
+  bits.push(band
+    ? `Band for <b>${esc(role)}</b>: ${bandLabel(band.min,band.salaried)} &ndash; ${bandLabel(band.max,band.salaried)}`
+    : `No pay band set for this role yet &mdash; gap math will stay blank`);
+  if(!isNaN(r) && minEq!=null){
+    const gap=Math.max(0,minEq-r);
+    bits.push(gap>0.001
+      ? `<span class="big" style="color:var(--bad)">${money(gap*HOURS_PER_YEAR)}/yr</span> below the floor (+$${Math.round(gap*100)/100}/hr)`
+      : `<span class="big">At or above the floor</span>`);
+  }
+  if(!isNaN(r)) bits.push(`Annualized at ${HOURS_PER_YEAR} hrs: <b>${money(r*HOURS_PER_YEAR)}</b>`);
+  if(lr) bits.push(`Next review (9 mo): <b>${fmtDate(addMonths(lr,9))}</b>`);
+  $("#apPreview").innerHTML=bits.join("<br>");
+}
+function confirmAddPerson(){
+  const name=($("#apName").value||"").trim();
+  if(!name){$("#apErr").textContent="Enter a name first.";$("#apName").focus();return}
+  const dup=state.people.some(p=>(p.name||"").trim().toLowerCase()===name.toLowerCase());
+  if(dup && !confirm(name+" is already in the tracker. Add a second record anyway?")) return;
+  const rv=$("#apRate").value;
+  const person={
+    id:uid(),
+    name,
+    dept:$("#apHub").value,
+    team:$("#apTeam").value,
+    role:$("#apRole").value,
+    nextRole:"",
+    rate: rv===""?"":parseFloat(rv),
+    lastReview:$("#apReview").value||"",
+    qtr:$("#apQtr").value||"",
+    raiseHourly:"",
+    status:$("#apStatus").value||"Pending"
+  };
+  state.people.unshift(person);
+  save();
+  $("#addScrim").classList.remove("open");
+  renderAll();
+  toast(name+" added — now on every tab");
+}
+function closeAdd(){$("#addScrim").classList.remove("open")}
+function addBand(){
+  state.bands.push({id:uid(),role:"New role",team:"",salaried:false,min:30,max:34});save();renderBands();
+}
+
+/* ================= VIEWS ================= */
+function switchView(v){
+  activeView=v;
+  document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("active",t.dataset.view===v));
+  document.querySelectorAll(".view").forEach(s=>s.classList.toggle("active",s.id==="view-"+v));
+  if(v==="plan")renderPlan();
+  if(v==="rates")renderRates();
+  if(v==="log")renderLog();
+  if(v==="bands")renderBands();
+}
+function updateCounts(){
+  $("#cntPlan").textContent=state.people.length;
+  $("#cntRates").textContent=state.people.length;
+  $("#cntLog").textContent=state.log.length;
+}
+function renderAll(){renderPlanHead();renderRatesHead();renderPlan();renderRates();renderLog();renderBands();updateCounts()}
+
+/* ================= WIRE UP ================= */
+document.querySelectorAll(".tab").forEach(t=>t.addEventListener("click",()=>switchView(t.dataset.view)));
+$("#planSearch").addEventListener("input",renderPlan);
+$("#ratesSearch").addEventListener("input",renderRates);
+$("#logSearch").addEventListener("input",renderLog);
+$("#btnAdd").addEventListener("click",openAddPerson);
+$("#btnAddRates").addEventListener("click",openAddPerson);
+$("#apCancel").addEventListener("click",closeAdd);
+$("#apConfirm").addEventListener("click",confirmAddPerson);
+$("#addScrim").addEventListener("click",e=>{if(e.target.id==="addScrim")closeAdd()});
+["apRole","apRate","apReview"].forEach(id=>{
+  $("#"+id).addEventListener("input",updateAddPreview);
+  $("#"+id).addEventListener("change",updateAddPreview);
+});
+$("#apName").addEventListener("keydown",e=>{if(e.key==="Enter")confirmAddPerson()});
+$("#apRate").addEventListener("keydown",e=>{if(e.key==="Enter")confirmAddPerson()});
+$("#btnAddBand").addEventListener("click",addBand);
+$("#btnExportJson").addEventListener("click",exportJson);
+$("#btnExportCsv").addEventListener("click",exportCsv);
+$("#btnLogCsv").addEventListener("click",exportLogCsv);
+$("#btnImport").addEventListener("click",()=>$("#fileInput").click());
+$("#fileInput").addEventListener("change",e=>{if(e.target.files[0])importJson(e.target.files[0]);e.target.value=""});
+$("#raiseNewRate").addEventListener("input",updateRaisePreview);
+$("#raiseCancel").addEventListener("click",()=>$("#raiseScrim").classList.remove("open"));
+$("#raiseConfirm").addEventListener("click",confirmRaise);
+$("#raiseScrim").addEventListener("click",e=>{if(e.target.id==="raiseScrim")$("#raiseScrim").classList.remove("open")});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){$("#raiseScrim").classList.remove("open");closeAdd()}});
+
+setupYearBar();
+setupQuarterFilter();
+setupSortBar();
+setupRateFilters();
+renderAll();
+$("#saveDot").classList.add("saved");$("#saveText").textContent="Demo data loaded";
+</script>
+</body>
+</html>
