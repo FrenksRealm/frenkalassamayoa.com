@@ -1,0 +1,5 @@
+# Local-only folders that should never go to GitHub
+.netlify
+.backups
+.originals
+.DS_Store

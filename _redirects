@@ -1,0 +1,3 @@
+# Send the old netlify.app address to the real domain, keeping the page path.
+https://frenkalassamayoa.netlify.app/*  https://frenkalassamayoa.com/:splat  301!
+http://frenkalassamayoa.netlify.app/*   https://frenkalassamayoa.com/:splat  301!
